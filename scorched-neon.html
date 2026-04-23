@@ -1584,7 +1584,6 @@ function returnToTitle() {
 
 /* ---------- Main loop ---------- */
 let settleTimer = 0;  // frames to wait after projectiles done before next turn
-let settleTimer = 0;
 function loop() {
   requestAnimationFrame(loop);                    // schedule first so errors can't kill the loop
   if (!terrain || tanks.length === 0) { return; } // nothing to draw until startGame() has run
