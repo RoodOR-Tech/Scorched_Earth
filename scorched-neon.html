@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SCORCHED // NEON</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,13 +38,16 @@
     position: relative;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
   }
   canvas {
     display: block;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    flex: 1;
+    height: 100%;
     image-rendering: pixelated;
     cursor: crosshair;
   }
@@ -113,7 +117,7 @@
   .rail {
     position: absolute;
     left: 0; right: 0; bottom: 0;
-    padding: 12px 20px 18px;
+    padding: 12px 20px max(18px, env(safe-area-inset-bottom));
     display: flex;
     justify-content: center;
     gap: 10px;
@@ -147,7 +151,7 @@
   /* Aim control */
   .aim {
     position: absolute;
-    left: 20px; bottom: 100px;
+    left: 20px; bottom: calc(100px + env(safe-area-inset-bottom));
     display: flex;
     gap: 10px;
     pointer-events: none;
@@ -184,7 +188,7 @@
   /* Fire button */
   #fireBtn {
     position: absolute;
-    right: 20px; bottom: 100px;
+    right: 20px; bottom: calc(100px + env(safe-area-inset-bottom));
     pointer-events: auto;
     z-index: 10;
     padding: 16px 32px;
@@ -335,8 +339,8 @@
   .keyhint b { color: var(--ink); font-weight: 700; }
 
   @media (max-width: 700px) {
-    .aim { bottom: 160px; }
-    #fireBtn { bottom: 160px; padding: 12px 20px; font-size: 22px; }
+    .aim { bottom: calc(160px + env(safe-area-inset-bottom)); }
+    #fireBtn { bottom: calc(160px + env(safe-area-inset-bottom)); padding: 12px 20px; font-size: 22px; }
     .keyhint { display: none; }
   }
 </style>
