@@ -339,8 +339,40 @@
   .keyhint b { color: var(--ink); font-weight: 700; }
 
   @media (max-width: 700px) {
-    .aim { bottom: calc(160px + env(safe-area-inset-bottom)); }
-    #fireBtn { bottom: calc(160px + env(safe-area-inset-bottom)); padding: 12px 20px; font-size: 22px; }
+    /* Compact HUD */
+    .hud { padding: 8px 8px; gap: 8px; }
+    .panel { padding: 8px 10px; }
+    .panel .tank-name { font-size: 18px; }
+    .panel .val { font-size: 13px; }
+    .bar { min-width: 70px; }
+
+    /* Single-row scrollable weapon rail */
+    .rail {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      justify-content: flex-start;
+      padding-left: 10px;
+      padding-right: 10px;
+      scrollbar-width: none;
+    }
+    .rail::-webkit-scrollbar { display: none; }
+    .weapon { flex-shrink: 0; min-width: 80px; }
+
+    /* Aim panel: wide strip above the rail */
+    .aim {
+      left: 10px;
+      right: 110px;
+      bottom: calc(75px + env(safe-area-inset-bottom));
+    }
+    .aim .panel { min-width: 0; width: 100%; pointer-events: auto; }
+
+    #fireBtn {
+      right: 10px;
+      bottom: calc(75px + env(safe-area-inset-bottom));
+      padding: 12px 16px;
+      font-size: 20px;
+    }
+
     .keyhint { display: none; }
   }
 </style>
