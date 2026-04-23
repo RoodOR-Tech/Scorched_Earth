@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SCORCHED // NEON</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #05020f;
+    --bg2: #0a0520;
+    --ink: #e8f4ff;
+    --dim: #6a6880;
+    --p1: #ff2e93;   /* pink */
+    --p2: #00f0ff;   /* cyan */
+    --p3: #b8ff00;   /* acid */
+    --p4: #ffb800;   /* gold */
+    --danger: #ff3355;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Space Mono', monospace;
+    overflow: hidden;
+    user-select: none;
+  }
+  body {
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(255,46,147,0.12), transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(0,240,255,0.10), transparent 50%),
+      var(--bg);
+  }
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    flex: 1;
+    image-rendering: pixelated;
+    cursor: crosshair;
+  }
+
+  /* HUD overlay */
+  .hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 14px 20px;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .panel {
+    background: rgba(10,5,32,0.78);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    padding: 10px 14px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    pointer-events: auto;
+    position: relative;
+  }
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid transparent;
+    background: linear-gradient(135deg, var(--accent, var(--p2)), transparent 60%) border-box;
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    pointer-events: none;
+  }
+  .panel .lbl { color: var(--dim); font-size: 10px; }
+  .panel .val { font-size: 16px; font-weight: 700; }
+  .panel .tank-name {
+    font-family: 'VT323', monospace;
+    font-size: 24px;
+    letter-spacing: 0.12em;
+    color: var(--accent, var(--p2));
+    text-shadow: 0 0 8px var(--accent, var(--p2));
+  }
+  .bar {
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    margin-top: 4px;
+    position: relative;
+    min-width: 120px;
+  }
+  .bar > div {
+    height: 100%;
+    background: var(--accent, var(--p2));
+    box-shadow: 0 0 8px var(--accent, var(--p2));
+    transition: width 0.2s;
+  }
+
+  .readout {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 4px 14px;
+  }
+
+  /* Bottom weapon rail */
+  .rail {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 12px 20px 18px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: linear-gradient(to top, rgba(5,2,15,0.9), transparent);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .weapon {
+    pointer-events: auto;
+    background: rgba(10,5,32,0.7);
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 6px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    transition: all 0.15s;
+    min-width: 90px;
+    text-align: left;
+  }
+  .weapon:hover { border-color: var(--p2); color: var(--p2); }
+  .weapon.sel {
+    border-color: var(--accent, var(--p3));
+    color: var(--accent, var(--p3));
+    box-shadow: 0 0 12px rgba(184,255,0,0.3) inset;
+  }
+  .weapon .wn { font-weight: 700; display: block; font-size: 12px; }
+  .weapon .wd { color: var(--dim); font-size: 10px; }
+  .weapon .wk { color: var(--dim); font-size: 9px; float: right; }
+
+  /* Aim control */
+  .aim {
+    position: absolute;
+    left: 20px; bottom: 100px;
+    display: flex;
+    gap: 10px;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .aim .panel { min-width: 120px; pointer-events: auto; }
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .slider-row button {
+    background: transparent;
+    border: 1px solid var(--dim);
+    color: var(--ink);
+    width: 22px; height: 22px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+  }
+  .slider-row button:hover { border-color: var(--p2); color: var(--p2); }
+  .slider-row input[type=range] {
+    flex: 1;
+    accent-color: var(--p3);
+  }
+  .slider-row .num {
+    font-size: 14px;
+    font-weight: 700;
+    min-width: 40px;
+    text-align: right;
+  }
+
+  /* Fire button */
+  #fireBtn {
+    position: absolute;
+    right: 20px; bottom: 100px;
+    pointer-events: auto;
+    z-index: 10;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, var(--p1), #ff0066);
+    border: none;
+    color: white;
+    font-family: 'VT323', monospace;
+    font-size: 32px;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(255,46,147,0.5), inset 0 0 20px rgba(255,255,255,0.1);
+    transition: all 0.15s;
+  }
+  #fireBtn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 40px rgba(255,46,147,0.8), inset 0 0 20px rgba(255,255,255,0.2);
+  }
+  #fireBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    filter: grayscale(1);
+  }
+
+  /* Title screen */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(5,2,15,0.92);
+    backdrop-filter: blur(14px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    z-index: 100;
+    padding: 40px;
+  }
+  .overlay.hidden { display: none; }
+  h1 {
+    font-family: 'VT323', monospace;
+    font-size: clamp(60px, 12vw, 140px);
+    letter-spacing: 0.05em;
+    line-height: 0.9;
+    text-align: center;
+    background: linear-gradient(135deg, var(--p1) 0%, var(--p2) 60%, var(--p3) 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 30px rgba(255,46,147,0.4));
+  }
+  h1 span { display: block; }
+  h1 .sub {
+    font-size: 0.25em;
+    letter-spacing: 0.4em;
+    color: var(--dim);
+    background: none;
+    -webkit-text-fill-color: var(--dim);
+    margin-top: 10px;
+  }
+  .menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 320px;
+  }
+  .menu-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.02);
+  }
+  .menu-row .lbl { color: var(--dim); font-size: 11px; letter-spacing: 0.1em; }
+  .menu-row .opts { display: flex; gap: 4px; }
+  .opt {
+    padding: 4px 10px;
+    border: 1px solid var(--dim);
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+  }
+  .opt.on { border-color: var(--p3); color: var(--p3); background: rgba(184,255,0,0.08); }
+  .opt:hover { border-color: var(--p2); }
+  #startBtn {
+    margin-top: 10px;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--p2), var(--p3));
+    color: #05020f;
+    border: none;
+    font-family: 'VT323', monospace;
+    font-size: 28px;
+    letter-spacing: 0.3em;
+    cursor: pointer;
+    font-weight: 700;
+  }
+  #startBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 40px rgba(0,240,255,0.5);
+  }
+  .hint {
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-align: center;
+  }
+
+  /* Messages */
+  .flash {
+    position: absolute;
+    left: 50%;
+    top: 30%;
+    transform: translate(-50%, -50%);
+    font-family: 'VT323', monospace;
+    font-size: 80px;
+    letter-spacing: 0.1em;
+    color: var(--p3);
+    text-shadow: 0 0 40px currentColor;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 50;
+    white-space: nowrap;
+  }
+  .flash.show {
+    animation: flash 2s forwards;
+  }
+  @keyframes flash {
+    0% { opacity: 0; transform: translate(-50%, -60%) scale(0.8); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -40%) scale(1.2); }
+  }
+
+  .keyhint {
+    position: absolute;
+    left: 20px; top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 5;
+    color: var(--dim);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    line-height: 1.8;
+  }
+  .keyhint b { color: var(--ink); font-weight: 700; }
+
+  @media (max-width: 700px) {
+    .aim { bottom: 160px; }
+    #fireBtn { bottom: 160px; padding: 12px 20px; font-size: 22px; }
+    .keyhint { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="c"></canvas>
+
+  <!-- HUD -->
+  <div class="hud">
+    <div class="panel" id="p1Panel" style="--accent: var(--p1);">
+      <div class="tank-name" id="p1Name">PLAYER 1</div>
+      <div class="readout">
+        <div><div class="lbl">HP</div><div class="bar"><div id="p1Hp" style="width:100%"></div></div></div>
+        <div><div class="lbl">SHIELD</div><div class="val" id="p1Sh">—</div></div>
+      </div>
+    </div>
+    <div class="panel" id="windPanel" style="--accent: var(--p4);">
+      <div class="lbl">WIND</div>
+      <div class="val" id="windVal">→ 0</div>
+      <div class="lbl" style="margin-top:6px;">TURN</div>
+      <div class="val" id="turnVal">—</div>
+    </div>
+    <div class="panel" id="p2Panel" style="--accent: var(--p2);">
+      <div class="tank-name" id="p2Name" style="text-align:right;">PLAYER 2</div>
+      <div class="readout" style="direction:rtl;">
+        <div style="direction:ltr;"><div class="lbl">HP</div><div class="bar"><div id="p2Hp" style="width:100%"></div></div></div>
+        <div style="direction:ltr;"><div class="lbl">SHIELD</div><div class="val" id="p2Sh">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aim controls -->
+  <div class="aim">
+    <div class="panel" style="--accent: var(--p3);">
+      <div class="lbl">ANGLE</div>
+      <div class="slider-row">
+        <button data-act="a-">–</button>
+        <input type="range" id="angle" min="0" max="180" value="45">
+        <div class="num" id="angleV">45°</div>
+        <button data-act="a+">+</button>
+      </div>
+      <div class="lbl" style="margin-top:6px;">POWER</div>
+      <div class="slider-row">
+        <button data-act="p-">–</button>
+        <input type="range" id="power" min="10" max="100" value="55">
+        <div class="num" id="powerV">55</div>
+        <button data-act="p+">+</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="fireBtn">FIRE</button>
+
+  <div class="keyhint">
+    <b>←/→</b> angle<br>
+    <b>↑/↓</b> power<br>
+    <b>1–9,0,-,=</b> weapons<br>
+    <b>SPACE</b> fire<br>
+    <b>R</b> restart
+  </div>
+
+  <!-- Weapon rail -->
+  <div class="rail" id="rail"></div>
+
+  <div class="flash" id="flash"></div>
+
+  <!-- Title screen -->
+  <div class="overlay" id="title">
+    <h1>
+      <span>SCORCHED</span>
+      <span style="background: linear-gradient(135deg, var(--p2), var(--p3)); -webkit-background-clip: text; background-clip: text;">///NEON</span>
+      <span class="sub">A DIRT THROWING SIMULATOR</span>
+    </h1>
+    <div class="menu">
+      <div class="menu-row">
+        <span class="lbl">MODE</span>
+        <div class="opts" data-group="mode">
+          <button class="opt on" data-val="pvp">2 PLAYER</button>
+          <button class="opt" data-val="pvc">VS CPU</button>
+          <button class="opt" data-val="cvc">CPU VS CPU</button>
+        </div>
+      </div>
+      <div class="menu-row">
+        <span class="lbl">CPU SKILL</span>
+        <div class="opts" data-group="ai">
+          <button class="opt" data-val="0">ROOKIE</button>
+          <button class="opt on" data-val="1">VETERAN</button>
+          <button class="opt" data-val="2">DEADSHOT</button>
+        </div>
+      </div>
+      <div class="menu-row">
+        <span class="lbl">TERRAIN</span>
+        <div class="opts" data-group="terrain">
+          <button class="opt on" data-val="hills">ROLLING</button>
+          <button class="opt" data-val="sharp">JAGGED</button>
+          <button class="opt" data-val="plateau">PLATEAU</button>
+        </div>
+      </div>
+      <button id="startBtn">ENGAGE</button>
+      <div class="hint">HOT-SEAT // PASS THE KEYBOARD</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   SCORCHED // NEON
+   Single-file canvas game. Projectile artillery with destructible terrain.
+   ========================================================================= */
+
+(() => {
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect();
+  cv.width = Math.floor(r.width * DPR);
+  cv.height = Math.floor(r.height * DPR);
+  W = cv.width;
+  H = cv.height;
+}
+window.addEventListener('resize', () => {
+  const hadTerrain = terrain && terrain.length;
+  resize();
+  if (hadTerrain) rebuildTerrainOnResize();
+});
+resize();
+
+/* ---------- Utilities ---------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+const randi = (a, b) => Math.floor(rand(a, b));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const TAU = Math.PI * 2;
+
+/* ---------- Config ---------- */
+const GRAV = 0.22;
+const MAX_PARTICLES = 2000;
+
+/* ---------- Weapons ---------- */
+/*
+  Each weapon:
+    name, desc, kind, radius (blast), dmg, ammo (null = infinite),
+    key (display), impl (on impact or custom)
+  kinds:
+    'single'   - single projectile, explodes on impact
+    'cluster'  - splits into N child bombs mid-flight
+    'mirv'     - splits into N near apex
+    'dirt'     - deposits terrain instead of blast
+    'napalm'   - leaves burning particles on ground
+    'roller'   - rolls along the terrain after landing
+    'tracer'   - tiny low-damage, infinite ammo
+    'funky'    - tunneling dirt-eater
+    'nuke'     - giant
+    'laser'    - instant beam (no projectile physics)
+*/
+const WEAPONS = [
+  { name: 'TRACER',   desc: 'ranging shot', kind: 'tracer',  r: 14,  dmg: 8,   ammo: null, key: '1' },
+  { name: 'MISSILE',  desc: 'std. explosive', kind: 'single', r: 38,  dmg: 45,  ammo: null, key: '2' },
+  { name: 'HEAVY',    desc: 'big boom',      kind: 'single', r: 62,  dmg: 75,  ammo: 4,    key: '3' },
+  { name: 'MIRV-3',   desc: '3 warheads',    kind: 'mirv',   r: 34,  dmg: 38,  ammo: 3,    key: '4', count: 3 },
+  { name: 'CLUSTER',  desc: '5 bomblets',    kind: 'cluster',r: 28,  dmg: 22,  ammo: 3,    key: '5', count: 5 },
+  { name: 'NAPALM',   desc: 'burning goo',   kind: 'napalm', r: 30,  dmg: 20,  ammo: 2,    key: '6' },
+  { name: 'ROLLER',   desc: 'rolls down',    kind: 'roller', r: 40,  dmg: 50,  ammo: 3,    key: '7' },
+  { name: 'FUNKY',    desc: 'eats terrain',  kind: 'funky',  r: 22,  dmg: 30,  ammo: 3,    key: '8' },
+  { name: 'LASER',    desc: 'instant beam',  kind: 'laser',  r: 0,   dmg: 40,  ammo: 2,    key: '9' },
+  { name: 'DIRT',     desc: 'build wall',    kind: 'dirt',   r: 55,  dmg: 0,   ammo: 3,    key: '0' },
+  { name: 'NUKE',     desc: 'apocalypse',    kind: 'nuke',   r: 130, dmg: 150, ammo: 1,    key: '-' },
+  { name: 'SHIELD',   desc: 'absorbs 50hp',  kind: 'shield', r: 0,   dmg: 0,   ammo: 2,    key: '=' },
+];
+
+/* ---------- Game state ---------- */
+let terrain;       // Float32Array of ground heights (Y values), length = W
+let terrainMin;    // for drawing
+const particles = [];
+const tanks = [];
+let projectiles = [];
+let effects = [];  // decorative stuff (tracers, beams, napalm fire)
+let wind = 0;      // px/s^2 horizontal acceleration on projectiles
+let turn = 0;      // index of current player
+let mode = 'pvp';  // pvp | pvc | cvc
+let aiSkill = 1;   // 0..2
+let terrainType = 'hills';
+let phase = 'aim'; // aim | projectile | between | gameover
+let winner = -1;
+let shake = { t: 0, mag: 0 };
+let flashTimer = 0;
+
+/* ---------- Terrain generation ---------- */
+function buildTerrain(type = 'hills') {
+  const width = W;
+  terrain = new Float32Array(width);
+  const baseline = H * 0.68;
+
+  if (type === 'hills') {
+    // Layered sinusoids for rolling hills
+    const layers = [
+      { amp: H * 0.12, freq: 0.0018, phase: Math.random() * TAU },
+      { amp: H * 0.06, freq: 0.0055, phase: Math.random() * TAU },
+      { amp: H * 0.03, freq: 0.012,  phase: Math.random() * TAU },
+      { amp: H * 0.015, freq: 0.035, phase: Math.random() * TAU },
+    ];
+    for (let x = 0; x < width; x++) {
+      let y = baseline;
+      for (const L of layers) y += Math.sin(x * L.freq + L.phase) * L.amp;
+      terrain[x] = y;
+    }
+  } else if (type === 'sharp') {
+    // Midpoint displacement
+    const n = width;
+    const pts = [rand(H*0.4, H*0.7), rand(H*0.4, H*0.7)];
+    let step = n - 1;
+    while (step > 2) {
+      const newPts = [];
+      for (let i = 0; i < pts.length - 1; i++) {
+        newPts.push(pts[i]);
+        const mid = (pts[i] + pts[i+1]) / 2 + rand(-step * 0.4, step * 0.4);
+        newPts.push(clamp(mid, H*0.25, H*0.82));
+      }
+      newPts.push(pts[pts.length-1]);
+      pts.length = 0;
+      pts.push(...newPts);
+      step /= 2;
+    }
+    for (let x = 0; x < width; x++) {
+      const t = x / (width - 1) * (pts.length - 1);
+      const i = Math.floor(t), f = t - i;
+      terrain[x] = lerp(pts[i], pts[Math.min(i+1, pts.length-1)], f);
+    }
+  } else if (type === 'plateau') {
+    // Flat with a few raised platforms
+    for (let x = 0; x < width; x++) terrain[x] = baseline + Math.sin(x * 0.002) * H * 0.02;
+    const nPlateaus = randi(2, 5);
+    for (let i = 0; i < nPlateaus; i++) {
+      const cx = randi(width * 0.1, width * 0.9);
+      const w = randi(80, 220);
+      const h = randi(40, 180);
+      for (let x = Math.max(0, cx - w); x < Math.min(width, cx + w); x++) {
+        const d = Math.abs(x - cx) / w;
+        const falloff = Math.cos(d * Math.PI / 2);
+        terrain[x] = Math.min(terrain[x], terrain[x] - h * falloff * falloff);
+      }
+    }
+  }
+
+  // Smooth slightly
+  for (let pass = 0; pass < 2; pass++) {
+    const copy = terrain.slice();
+    for (let x = 1; x < width - 1; x++) {
+      terrain[x] = (copy[x-1] + copy[x] + copy[x+1]) / 3;
+    }
+  }
+
+  terrainMin = H;
+  for (let x = 0; x < width; x++) terrainMin = Math.min(terrainMin, terrain[x]);
+}
+
+function rebuildTerrainOnResize() {
+  // Keep the same terrain, but stretch/rescale
+  const oldW = terrain.length;
+  const newT = new Float32Array(W);
+  for (let x = 0; x < W; x++) {
+    const t = x / (W - 1) * (oldW - 1);
+    const i = Math.floor(t), f = t - i;
+    newT[x] = lerp(terrain[i], terrain[Math.min(i+1, oldW-1)], f);
+  }
+  terrain = newT;
+  // Reposition tanks onto ground
+  for (const tk of tanks) {
+    tk.x = clamp(tk.x * (W / oldW), 30, W - 30);
+    tk.y = terrain[Math.round(tk.x)] - 10;
+  }
+}
+
+/* ---------- Tanks ---------- */
+function makeTank(x, colorVar, colorHex, name, isAI) {
+  return {
+    x,
+    y: terrain[Math.round(x)] - 10,
+    hp: 100,
+    shield: 0,
+    angle: 45,       // degrees, 90 = straight up
+    power: 55,
+    color: colorHex,
+    colorVar,
+    name,
+    isAI,
+    inventory: Object.fromEntries(WEAPONS.map(w => [w.name, w.ammo === null ? Infinity : w.ammo])),
+    selected: 1,     // index into WEAPONS (start on MISSILE)
+    dead: false,
+  };
+}
+
+function placeTanks() {
+  tanks.length = 0;
+  const p1x = rand(W * 0.08, W * 0.22);
+  const p2x = rand(W * 0.78, W * 0.92);
+  const p1AI = mode === 'cvc';
+  const p2AI = mode === 'pvc' || mode === 'cvc';
+  tanks.push(makeTank(p1x, '--p1', '#ff2e93', p1AI ? 'CPU ALPHA' : 'PLAYER 1', p1AI));
+  tanks.push(makeTank(p2x, '--p2', '#00f0ff', p2AI ? 'CPU BETA' : 'PLAYER 2', p2AI));
+  // Mirror starting angle
+  tanks[0].angle = 45;
+  tanks[1].angle = 135;
+}
+
+/* ---------- Collapse tanks onto terrain (after damage) ---------- */
+function settleTanks() {
+  for (const tk of tanks) {
+    if (tk.dead) continue;
+    const xi = Math.round(clamp(tk.x, 0, W - 1));
+    const groundY = terrain[xi];
+    if (tk.y < groundY - 10) {
+      // fall
+      tk.fallVel = (tk.fallVel || 0) + GRAV * 2;
+      tk.y += tk.fallVel;
+      if (tk.y >= groundY - 10) {
+        tk.y = groundY - 10;
+        // Fall damage if big drop
+        if (tk.fallVel > 8) tk.hp = Math.max(0, tk.hp - Math.floor(tk.fallVel * 2));
+        tk.fallVel = 0;
+      }
+    } else {
+      tk.y = groundY - 10;
+      tk.fallVel = 0;
+    }
+  }
+}
+
+/* ---------- Wind ---------- */
+function newWind() {
+  wind = rand(-0.08, 0.08);
+}
+
+/* ---------- Damage / explosions ---------- */
+function damageTerrain(cx, cy, r) {
+  const x0 = Math.max(0, Math.floor(cx - r));
+  const x1 = Math.min(W - 1, Math.ceil(cx + r));
+  for (let x = x0; x <= x1; x++) {
+    const dx = x - cx;
+    const dy2 = r * r - dx * dx;
+    if (dy2 <= 0) continue;
+    const dy = Math.sqrt(dy2);
+    // New ground level is max(old, cy + dy) — everything above cy+dy gets removed
+    const bottom = cy + dy;
+    if (bottom > terrain[x]) terrain[x] = bottom;
+  }
+}
+
+function addTerrain(cx, cy, r) {
+  const x0 = Math.max(0, Math.floor(cx - r));
+  const x1 = Math.min(W - 1, Math.ceil(cx + r));
+  for (let x = x0; x <= x1; x++) {
+    const dx = x - cx;
+    const dy2 = r * r - dx * dx;
+    if (dy2 <= 0) continue;
+    const dy = Math.sqrt(dy2);
+    const top = cy - dy;
+    if (top < terrain[x]) terrain[x] = top;
+  }
+}
+
+function explode(cx, cy, r, dmg, color = '#ffb800') {
+  damageTerrain(cx, cy, r);
+  shake.t = 20; shake.mag = Math.min(20, r / 4);
+  // particles: ring + sparks
+  const n = Math.min(80, 20 + r);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU;
+    const spd = rand(1.5, 6);
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(a) * spd, vy: Math.sin(a) * spd - rand(0, 2),
+      life: rand(30, 70),
+      maxLife: 70,
+      r: rand(1.5, 4),
+      color,
+      gravity: 0.08,
+      fade: 1,
+    });
+  }
+  // bright flash ring
+  effects.push({ type: 'ring', x: cx, y: cy, r: 2, maxR: r * 1.6, life: 18, maxLife: 18, color });
+
+  // Damage tanks
+  for (const tk of tanks) {
+    if (tk.dead) continue;
+    const dx = tk.x - cx, dy = tk.y - cy;
+    const d = Math.hypot(dx, dy);
+    if (d < r + 10) {
+      const falloff = 1 - Math.min(1, d / (r + 10));
+      let amt = Math.round(dmg * falloff);
+      if (tk.shield > 0) {
+        const absorbed = Math.min(tk.shield, amt);
+        tk.shield -= absorbed;
+        amt -= absorbed;
+      }
+      tk.hp = Math.max(0, tk.hp - amt);
+      // Knock-back tiny
+      tk.x += dx > 0 ? Math.min(6, falloff * 6) : -Math.min(6, falloff * 6);
+      tk.x = clamp(tk.x, 10, W - 10);
+    }
+  }
+}
+
+/* ---------- Projectiles ---------- */
+function fireWeapon(tk, wpnIdx) {
+  const W_ = WEAPONS[wpnIdx];
+  if (tk.inventory[W_.name] <= 0) return false;
+  if (W_.ammo !== null) tk.inventory[W_.name]--;
+
+  const barrelLen = 18;
+  const rad = (tk.angle) * Math.PI / 180;
+  // angle 0 = right, 90 = up, 180 = left
+  const bx = tk.x + Math.cos(rad) * barrelLen;
+  const by = tk.y - Math.sin(rad) * barrelLen;
+  const v = tk.power * 0.18;
+  const vx = Math.cos(rad) * v;
+  const vy = -Math.sin(rad) * v;
+
+  if (W_.kind === 'shield') {
+    tk.shield += 50;
+    nextTurn();
+    return true;
+  }
+
+  if (W_.kind === 'laser') {
+    // Instant beam along aim
+    laserFire(tk, bx, by, rad);
+    return true;
+  }
+
+  projectiles.push({
+    x: bx, y: by, vx, vy,
+    weapon: W_,
+    owner: tk,
+    trail: [],
+    split: false,
+    life: 0,
+    kind: W_.kind,
+    data: {},
+  });
+  phase = 'projectile';
+  return true;
+}
+
+function laserFire(tk, bx, by, rad) {
+  // Step along the ray until we hit terrain or a tank or leave the screen
+  let x = bx, y = by;
+  const dx = Math.cos(rad), dy = -Math.sin(rad);
+  const step = 2;
+  const pts = [{x, y}];
+  let hit = null;
+  for (let s = 0; s < 2000; s += step) {
+    x += dx * step; y += dy * step;
+    if (x < 0 || x > W || y > H) break;
+    // Tank hit?
+    for (const t2 of tanks) {
+      if (t2 === tk || t2.dead) continue;
+      if (Math.hypot(x - t2.x, y - t2.y) < 12) { hit = { tank: t2, x, y }; break; }
+    }
+    if (hit) break;
+    // Terrain?
+    if (y > 0 && y >= terrain[Math.round(clamp(x, 0, W-1))]) { hit = { ground: true, x, y }; break; }
+  }
+  pts.push({x, y});
+  effects.push({ type: 'laser', pts, life: 28, maxLife: 28, color: tk.color });
+  shake.t = 10; shake.mag = 4;
+  if (hit) {
+    if (hit.tank) {
+      let amt = 40;
+      if (hit.tank.shield > 0) {
+        const a = Math.min(hit.tank.shield, amt);
+        hit.tank.shield -= a; amt -= a;
+      }
+      hit.tank.hp = Math.max(0, hit.tank.hp - amt);
+      explode(hit.x, hit.y, 20, 0, tk.color);
+    } else {
+      explode(hit.x, hit.y, 25, 0, tk.color);
+    }
+  }
+  setTimeout(() => { checkDead(); nextTurn(); }, 400);
+  phase = 'projectile';
+}
+
+function stepProjectiles() {
+  const next = [];
+  for (const p of projectiles) {
+    p.life++;
+    // Trail
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 30) p.trail.shift();
+    // Integrate
+    p.vx += wind;
+    p.vy += GRAV;
+    p.x += p.vx;
+    p.y += p.vy;
+
+    // Special: MIRV split at apex
+    if (p.kind === 'mirv' && !p.split && p.vy > 0) {
+      p.split = true;
+      const n = p.weapon.count;
+      for (let i = 0; i < n; i++) {
+        const spreadVx = p.vx + rand(-2, 2);
+        const spreadVy = p.vy - rand(1, 3);
+        projectiles.push({
+          x: p.x, y: p.y, vx: spreadVx, vy: spreadVy,
+          weapon: { ...p.weapon, kind: 'single' },
+          kind: 'single', owner: p.owner, trail: [], life: 0, data: {},
+        });
+      }
+      // Remove parent
+      continue;
+    }
+
+    // Cluster: split once after 40 frames
+    if (p.kind === 'cluster' && !p.split && p.life === 45) {
+      p.split = true;
+      for (let i = 0; i < p.weapon.count; i++) {
+        const a = rand(0, TAU);
+        projectiles.push({
+          x: p.x, y: p.y,
+          vx: p.vx + Math.cos(a) * rand(1, 3),
+          vy: p.vy + Math.sin(a) * rand(1, 3),
+          weapon: { ...p.weapon, r: 22, dmg: 22, kind: 'single' },
+          kind: 'single', owner: p.owner, trail: [], life: 0, data: {},
+        });
+      }
+      continue;
+    }
+
+    // Funky: eats terrain as it travels through
+    if (p.kind === 'funky') {
+      const xi = Math.round(clamp(p.x, 0, W - 1));
+      if (p.y > terrain[xi]) {
+        // burrow
+        damageTerrain(p.x, p.y, 18);
+        particles.push({
+          x: p.x, y: p.y, vx: -p.vx * 0.3, vy: -2,
+          life: 20, maxLife: 20, r: 2, color: '#b8ff00',
+          gravity: 0.05, fade: 1,
+        });
+        if (p.life > 200 || p.x < 0 || p.x > W) {
+          explode(p.x, p.y, 30, p.weapon.dmg, '#b8ff00');
+          continue;
+        }
+      }
+    }
+
+    // Offscreen out-of-bounds
+    if (p.x < -200 || p.x > W + 200 || p.y > H + 200) continue;
+
+    // Ground collision
+    const xi = Math.round(clamp(p.x, 0, W - 1));
+    if (p.y >= terrain[xi] && p.y > 0) {
+      // Impact
+      onImpact(p);
+      continue;
+    }
+
+    // Tank collision (direct hit)
+    let hit = false;
+    for (const tk of tanks) {
+      if (tk.dead) continue;
+      if (Math.hypot(p.x - tk.x, p.y - tk.y) < 12) {
+        onImpact(p, tk);
+        hit = true;
+        break;
+      }
+    }
+    if (hit) continue;
+
+    next.push(p);
+  }
+  projectiles = next;
+}
+
+function onImpact(p, directTank) {
+  const W_ = p.weapon;
+  if (W_.kind === 'dirt') {
+    addTerrain(p.x, p.y, W_.r);
+    effects.push({ type: 'ring', x: p.x, y: p.y, r: 2, maxR: W_.r, life: 18, maxLife: 18, color: '#a08060' });
+    shake.t = 8; shake.mag = 3;
+    return;
+  }
+  if (W_.kind === 'napalm') {
+    explode(p.x, p.y, W_.r, W_.dmg, '#ff6600');
+    // spawn fire patch on terrain
+    for (let i = 0; i < 12; i++) {
+      const off = rand(-W_.r, W_.r);
+      const xi = Math.round(clamp(p.x + off, 0, W - 1));
+      effects.push({
+        type: 'fire', x: xi, y: terrain[xi] - 2,
+        life: 180, maxLife: 180, color: '#ff6600'
+      });
+    }
+    return;
+  }
+  if (W_.kind === 'roller') {
+    // Start rolling instead of exploding immediately
+    projectiles.push({
+      ...p,
+      kind: 'rolling',
+      vx: p.vx * 0.4,
+      vy: 0,
+      rollLife: 180,
+      trail: [],
+      data: { rolling: true },
+    });
+    return;
+  }
+  if (W_.kind === 'nuke') {
+    explode(p.x, p.y, W_.r, W_.dmg, '#fff080');
+    shake.t = 50; shake.mag = 30;
+    // massive flash
+    effects.push({ type: 'ring', x: p.x, y: p.y, r: 5, maxR: W_.r * 2.2, life: 40, maxLife: 40, color: '#ffffff' });
+    return;
+  }
+  if (W_.kind === 'tracer') {
+    explode(p.x, p.y, W_.r, W_.dmg, '#ffffff');
+    return;
+  }
+  explode(p.x, p.y, W_.r, W_.dmg, W_.kind === 'mirv' ? '#00f0ff' : '#ffb800');
+}
+
+/* Handle rollers specially in stepProjectiles when kind='rolling' */
+function stepRollers() {
+  const remaining = [];
+  for (const p of projectiles) {
+    if (p.kind !== 'rolling') { remaining.push(p); continue; }
+    p.rollLife--;
+    if (p.rollLife <= 0) {
+      explode(p.x, p.y, p.weapon.r, p.weapon.dmg, '#b8ff00');
+      continue;
+    }
+    // Move along terrain surface, influenced by slope + velocity
+    const xi = Math.round(clamp(p.x, 0, W - 1));
+    const yHere = terrain[xi];
+    const xR = Math.round(clamp(p.x + 6, 0, W - 1));
+    const xL = Math.round(clamp(p.x - 6, 0, W - 1));
+    const slope = (terrain[xR] - terrain[xL]) / 12;
+    p.vx += -slope * 0.6 + wind * 0.3;
+    p.vx *= 0.985;
+    p.x += p.vx;
+    p.y = terrain[Math.round(clamp(p.x, 0, W - 1))] - 4;
+    // Trail
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 20) p.trail.shift();
+    // Explode on tank contact
+    for (const tk of tanks) {
+      if (tk.dead) continue;
+      if (Math.hypot(tk.x - p.x, tk.y - p.y) < 14) {
+        explode(p.x, p.y, p.weapon.r, p.weapon.dmg, '#b8ff00');
+        p.rollLife = 0;
+        break;
+      }
+    }
+    if (p.rollLife > 0) remaining.push(p);
+    if (p.x < 0 || p.x > W) {
+      explode(clamp(p.x,0,W), p.y, p.weapon.r, p.weapon.dmg, '#b8ff00');
+      p.rollLife = 0;
+    }
+  }
+  projectiles = remaining;
+}
+
+/* ---------- Particles & effects step ---------- */
+function stepParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.vy += p.gravity || 0.1;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  // Cap
+  if (particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
+
+  for (let i = effects.length - 1; i >= 0; i--) {
+    const e = effects[i];
+    e.life--;
+    if (e.type === 'ring') e.r = lerp(e.r, e.maxR, 0.25);
+    if (e.type === 'fire' && Math.random() < 0.6) {
+      particles.push({
+        x: e.x + rand(-6, 6), y: e.y,
+        vx: rand(-0.3, 0.3), vy: rand(-2, -0.5),
+        life: 30, maxLife: 30, r: rand(1, 2.5),
+        color: Math.random() < 0.3 ? '#ffee00' : '#ff6600',
+        gravity: -0.02, fade: 1,
+      });
+      // Damage tank if standing in it
+      for (const tk of tanks) {
+        if (tk.dead) continue;
+        if (Math.abs(tk.x - e.x) < 8 && Math.abs(tk.y - e.y) < 15) {
+          if (e.life % 20 === 0) {
+            if (tk.shield > 0) tk.shield = Math.max(0, tk.shield - 2);
+            else tk.hp = Math.max(0, tk.hp - 2);
+          }
+        }
+      }
+    }
+    if (e.life <= 0) effects.splice(i, 1);
+  }
+}
+
+/* ---------- Rendering ---------- */
+function drawBackground() {
+  // Starfield parallax is cheap to draw
+  // Vertical gradient
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#0a0418');
+  g.addColorStop(0.5, '#120930');
+  g.addColorStop(1, '#1a0524');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid horizon
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,240,255,0.06)';
+  ctx.lineWidth = 1 * DPR;
+  const gridY = H * 0.72;
+  // Horizontal lines (perspective)
+  for (let i = 1; i <= 8; i++) {
+    const t = i / 8;
+    const y = gridY + (H - gridY) * t * t;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  // Vertical lines
+  for (let i = 0; i <= 20; i++) {
+    const t = i / 20;
+    const xTop = lerp(W * 0.3, W * -0.3, 1 - t) + W * 0.5;
+    const xBot = lerp(W * 1.5, W * -0.5, 1 - t) + 0;
+    ctx.beginPath(); ctx.moveTo(xTop, gridY); ctx.lineTo(xBot, H); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Distant stars/particles
+  ctx.save();
+  const t = performance.now() * 0.0002;
+  for (let i = 0; i < 40; i++) {
+    const sx = ((i * 97.3 + t * 40) % W);
+    const sy = ((i * 53.7) % (H * 0.6));
+    ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.15 * Math.sin(i + t*5)})`;
+    ctx.fillRect(sx, sy, 1.5 * DPR, 1.5 * DPR);
+  }
+  ctx.restore();
+
+  // Big distant sun/moon
+  ctx.save();
+  const cx = W * 0.82, cy = H * 0.22, r = H * 0.14;
+  const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2);
+  grd.addColorStop(0, 'rgba(255,46,147,0.35)');
+  grd.addColorStop(0.4, 'rgba(255,46,147,0.08)');
+  grd.addColorStop(1, 'rgba(255,46,147,0)');
+  ctx.fillStyle = grd;
+  ctx.fillRect(cx - r * 2, cy - r * 2, r * 4, r * 4);
+  ctx.globalCompositeOperation = 'lighter';
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  core.addColorStop(0, '#ff2e93');
+  core.addColorStop(0.6, 'rgba(255,46,147,0.3)');
+  core.addColorStop(1, 'rgba(255,46,147,0)');
+  ctx.fillStyle = core;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function drawTerrain() {
+  // Fill the ground with gradient + outline glow
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  for (let x = 0; x < W; x++) ctx.lineTo(x, terrain[x]);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, terrainMin, 0, H);
+  g.addColorStop(0, '#2a1040');
+  g.addColorStop(0.5, '#1a0830');
+  g.addColorStop(1, '#050015');
+  ctx.fillStyle = g;
+  ctx.fill();
+
+  // Outline glow
+  ctx.beginPath();
+  ctx.moveTo(0, terrain[0]);
+  for (let x = 1; x < W; x++) ctx.lineTo(x, terrain[x]);
+  ctx.strokeStyle = '#ff2e93';
+  ctx.lineWidth = 2 * DPR;
+  ctx.shadowColor = '#ff2e93';
+  ctx.shadowBlur = 18;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Second line
+  ctx.beginPath();
+  ctx.moveTo(0, terrain[0]);
+  for (let x = 1; x < W; x++) ctx.lineTo(x, terrain[x]);
+  ctx.strokeStyle = 'rgba(0,240,255,0.4)';
+  ctx.lineWidth = 1 * DPR;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawTank(tk) {
+  if (tk.dead) return;
+  ctx.save();
+  ctx.translate(tk.x, tk.y);
+
+  // Shield
+  if (tk.shield > 0) {
+    ctx.save();
+    ctx.strokeStyle = `rgba(184,255,0,${0.4 + Math.sin(performance.now()*0.01)*0.2})`;
+    ctx.lineWidth = 2 * DPR;
+    ctx.shadowColor = '#b8ff00'; ctx.shadowBlur = 14;
+    ctx.beginPath(); ctx.arc(0, -4, 22, 0, TAU); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Tracks
+  ctx.fillStyle = '#1a0530';
+  ctx.fillRect(-14, 0, 28, 4);
+  ctx.fillStyle = '#0a0218';
+  ctx.fillRect(-12, -1, 24, 2);
+
+  // Hull
+  ctx.fillStyle = tk.color;
+  ctx.shadowColor = tk.color;
+  ctx.shadowBlur = 12;
+  ctx.fillRect(-11, -8, 22, 8);
+  ctx.shadowBlur = 0;
+
+  // Hull detail line
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fillRect(-11, -8, 22, 1);
+
+  // Turret
+  ctx.fillStyle = tk.color;
+  ctx.shadowColor = tk.color;
+  ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(0, -8, 5, 0, TAU); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Barrel
+  const rad = tk.angle * Math.PI / 180;
+  const bx = Math.cos(rad) * 18;
+  const by = -Math.sin(rad) * 18;
+  ctx.strokeStyle = tk.color;
+  ctx.lineWidth = 3 * DPR;
+  ctx.shadowColor = tk.color;
+  ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(bx, by - 8); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Aim indicator line (for current player)
+  const cur = tanks[turn];
+  if (cur === tk && phase === 'aim') {
+    ctx.save();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = `rgba(255,255,255,${0.3 + Math.sin(performance.now()*0.005)*0.15})`;
+    ctx.lineWidth = 1 * DPR;
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    const len = 40 + tk.power * 0.6;
+    ctx.lineTo(Math.cos(rad) * len, -8 - Math.sin(rad) * len);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+
+  // Name label for current
+  if (tanks[turn] === tk && phase === 'aim') {
+    ctx.save();
+    ctx.fillStyle = tk.color;
+    ctx.font = `bold ${11 * DPR}px 'Space Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.shadowColor = tk.color; ctx.shadowBlur = 8;
+    ctx.fillText('▼', tk.x, tk.y - 30 + Math.sin(performance.now()*0.005) * 2);
+    ctx.restore();
+  }
+}
+
+function drawProjectile(p) {
+  // Trail
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 1; i < p.trail.length; i++) {
+    const a = i / p.trail.length;
+    ctx.strokeStyle = `rgba(255,200,100,${a * 0.8})`;
+    ctx.lineWidth = a * 3 * DPR;
+    ctx.shadowColor = '#ffb800';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(p.trail[i-1].x, p.trail[i-1].y);
+    ctx.lineTo(p.trail[i].x, p.trail[i].y);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Body
+  ctx.save();
+  const c = p.weapon.kind === 'dirt' ? '#a08060' :
+            p.weapon.kind === 'nuke' ? '#ffffff' :
+            p.weapon.kind === 'tracer' ? '#ffffff' :
+            p.weapon.kind === 'funky' ? '#b8ff00' :
+            p.weapon.kind === 'napalm' ? '#ff6600' :
+            '#ffb800';
+  ctx.fillStyle = c;
+  ctx.shadowColor = c;
+  ctx.shadowBlur = 16;
+  const r = p.weapon.kind === 'nuke' ? 5 : p.weapon.kind === 'tracer' ? 1.5 : 3;
+  ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    const a = Math.max(0, p.life / (p.maxLife || 50));
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = a;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+}
+
+function drawEffects() {
+  for (const e of effects) {
+    if (e.type === 'ring') {
+      const a = e.life / e.maxLife;
+      ctx.save();
+      ctx.strokeStyle = e.color;
+      ctx.globalAlpha = a;
+      ctx.lineWidth = 3 * a * DPR;
+      ctx.shadowColor = e.color;
+      ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, TAU); ctx.stroke();
+      ctx.restore();
+    } else if (e.type === 'laser') {
+      const a = e.life / e.maxLife;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.strokeStyle = e.color;
+      ctx.shadowColor = e.color;
+      ctx.shadowBlur = 24;
+      ctx.lineWidth = 4 * DPR;
+      ctx.beginPath();
+      ctx.moveTo(e.pts[0].x, e.pts[0].y);
+      ctx.lineTo(e.pts[1].x, e.pts[1].y);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5 * DPR;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+function render() {
+  // Camera shake
+  ctx.save();
+  if (shake.t > 0) {
+    const sx = rand(-shake.mag, shake.mag);
+    const sy = rand(-shake.mag, shake.mag);
+    ctx.translate(sx * DPR, sy * DPR);
+    shake.t--;
+  }
+
+  drawBackground();
+  drawTerrain();
+  for (const tk of tanks) drawTank(tk);
+  for (const p of projectiles) drawProjectile(p);
+  drawParticles();
+  drawEffects();
+
+  ctx.restore();
+}
+
+/* ---------- Turn / win handling ---------- */
+function checkDead() {
+  for (const tk of tanks) if (tk.hp <= 0) tk.dead = true;
+  const alive = tanks.filter(t => !t.dead);
+  if (alive.length <= 1) {
+    phase = 'gameover';
+    winner = alive.length ? tanks.indexOf(alive[0]) : -1;
+    showFlash(winner === -1 ? 'MUTUAL ANNIHILATION' : `${tanks[winner].name} WINS`);
+  }
+}
+
+function nextTurn() {
+  settleTanks();
+  checkDead();
+  if (phase === 'gameover') return;
+  newWind();
+  // Pick next living tank
+  let attempts = 0;
+  do {
+    turn = (turn + 1) % tanks.length;
+    attempts++;
+  } while (tanks[turn].dead && attempts < 5);
+  phase = 'aim';
+  updateHUD();
+  if (tanks[turn].isAI) setTimeout(doAITurn, 900);
+}
+
+/* ---------- AI ---------- */
+function simulateShot(angle, power, tk, wpnIdx) {
+  // Simulate projectile with current wind; return { hit: bool, d: dist to target, impact: {x,y} }
+  const target = tanks.find(t => t !== tk && !t.dead);
+  if (!target) return { d: Infinity };
+  const rad = angle * Math.PI / 180;
+  let x = tk.x + Math.cos(rad) * 18;
+  let y = tk.y - Math.sin(rad) * 18;
+  let vx = Math.cos(rad) * power * 0.18;
+  let vy = -Math.sin(rad) * power * 0.18;
+  for (let i = 0; i < 600; i++) {
+    vx += wind;
+    vy += GRAV;
+    x += vx; y += vy;
+    if (x < 0 || x > W) break;
+    const xi = Math.round(clamp(x, 0, W - 1));
+    if (y >= terrain[xi]) {
+      const d = Math.hypot(x - target.x, y - target.y);
+      return { d, impact: {x, y} };
+    }
+    if (y > H) break;
+  }
+  return { d: Infinity };
+}
+
+function doAITurn() {
+  const tk = tanks[turn];
+  if (!tk || tk.dead || phase !== 'aim') return;
+  const opponent = tanks.find(t => t !== tk && !t.dead);
+  if (!opponent) return;
+
+  // Pick weapon - weight toward stronger ones at higher skill
+  const availableIdx = WEAPONS.map((w, i) => ({ w, i }))
+    .filter(({ w, i }) => tk.inventory[w.name] > 0 && w.kind !== 'shield' && w.kind !== 'dirt');
+  // Prefer missile for basic, mix in heavy/mirv sometimes
+  let wpnIdx;
+  const roll = Math.random();
+  if (aiSkill === 0) {
+    wpnIdx = 1; // always missile
+  } else if (aiSkill === 1) {
+    if (roll < 0.5) wpnIdx = 1;
+    else if (roll < 0.75 && tk.inventory['HEAVY'] > 0) wpnIdx = 2;
+    else if (roll < 0.9 && tk.inventory['MIRV-3'] > 0) wpnIdx = 3;
+    else wpnIdx = 1;
+  } else {
+    // Deadshot: opens with tracer, then escalates
+    if (tk.hp < 30 && tk.inventory['NUKE'] > 0) wpnIdx = 10;
+    else if (roll < 0.25 && tk.inventory['HEAVY'] > 0) wpnIdx = 2;
+    else if (roll < 0.45 && tk.inventory['ROLLER'] > 0) wpnIdx = 6;
+    else if (roll < 0.6 && tk.inventory['MIRV-3'] > 0) wpnIdx = 3;
+    else wpnIdx = 1;
+  }
+  tk.selected = wpnIdx;
+
+  // Grid search angle/power, then refine
+  const aRange = tk.x < opponent.x ? [20, 85] : [95, 160];
+  let best = { d: Infinity, a: 45, p: 55 };
+  const noise = aiSkill === 0 ? 50 : aiSkill === 1 ? 18 : 6;
+
+  // Coarse pass
+  const aStep = aiSkill === 0 ? 15 : 8;
+  const pStep = aiSkill === 0 ? 20 : 10;
+  for (let a = aRange[0]; a <= aRange[1]; a += aStep) {
+    for (let p = 25; p <= 95; p += pStep) {
+      const r = simulateShot(a, p, tk, wpnIdx);
+      if (r.d < best.d) best = { d: r.d, a, p };
+    }
+  }
+  // Fine pass
+  const fineRange = aiSkill === 2 ? 5 : 10;
+  for (let a = best.a - fineRange; a <= best.a + fineRange; a += 1) {
+    for (let p = Math.max(15, best.p - 12); p <= Math.min(100, best.p + 12); p += 2) {
+      const r = simulateShot(a, p, tk, wpnIdx);
+      if (r.d < best.d) best = { d: r.d, a, p };
+    }
+  }
+  // Add inaccuracy
+  tk.angle = clamp(best.a + rand(-noise * 0.3, noise * 0.3), 1, 179);
+  tk.power = clamp(best.p + rand(-noise * 0.5, noise * 0.5), 15, 100);
+
+  updateHUD();
+  setTimeout(() => {
+    fireWeapon(tk, wpnIdx);
+    updateHUD();
+  }, 500);
+}
+
+/* ---------- HUD ---------- */
+const el = id => document.getElementById(id);
+
+function updateHUD() {
+  // Players
+  if (tanks.length >= 2) {
+    el('p1Name').textContent = tanks[0].name;
+    el('p2Name').textContent = tanks[1].name;
+    el('p1Hp').style.width = tanks[0].hp + '%';
+    el('p2Hp').style.width = tanks[1].hp + '%';
+    el('p1Sh').textContent = tanks[0].shield > 0 ? tanks[0].shield : '—';
+    el('p2Sh').textContent = tanks[1].shield > 0 ? tanks[1].shield : '—';
+
+    el('p1Panel').style.opacity = turn === 0 && phase === 'aim' ? 1 : 0.65;
+    el('p2Panel').style.opacity = turn === 1 && phase === 'aim' ? 1 : 0.65;
+  }
+
+  // Wind
+  const ws = wind.toFixed(2);
+  const dir = wind > 0.005 ? '→' : wind < -0.005 ? '←' : '•';
+  const mag = Math.round(Math.abs(wind) * 1000);
+  el('windVal').textContent = `${dir} ${mag}`;
+  el('turnVal').textContent = tanks[turn]?.name.split(' ')[0] || '—';
+
+  // Aim sliders
+  const cur = tanks[turn];
+  if (cur) {
+    el('angle').value = Math.round(cur.angle);
+    el('power').value = Math.round(cur.power);
+    el('angleV').textContent = Math.round(cur.angle) + '°';
+    el('powerV').textContent = Math.round(cur.power);
+  }
+
+  // Fire button
+  const btn = el('fireBtn');
+  btn.disabled = !(cur && !cur.isAI && phase === 'aim');
+
+  // Weapon rail
+  renderRail();
+}
+
+function renderRail() {
+  const cur = tanks[turn];
+  if (!cur) return;
+  const rail = el('rail');
+  rail.innerHTML = '';
+  WEAPONS.forEach((w, i) => {
+    const b = document.createElement('button');
+    b.className = 'weapon' + (cur.selected === i ? ' sel' : '');
+    b.dataset.idx = i;
+    const ammo = cur.inventory[w.name];
+    const ammoStr = ammo === Infinity ? '∞' : ammo;
+    b.innerHTML = `<span class="wk">${w.key}</span><span class="wn">${w.name}</span><span class="wd">${w.desc} · ${ammoStr}</span>`;
+    if (ammo <= 0) { b.style.opacity = 0.3; b.style.pointerEvents = 'none'; }
+    b.onclick = () => {
+      if (phase !== 'aim' || cur.isAI) return;
+      cur.selected = i;
+      updateHUD();
+    };
+    rail.appendChild(b);
+  });
+}
+
+function showFlash(text) {
+  const f = el('flash');
+  f.textContent = text;
+  f.classList.remove('show');
+  // restart animation
+  void f.offsetWidth;
+  f.classList.add('show');
+}
+
+/* ---------- Input ---------- */
+el('angle').addEventListener('input', e => {
+  const tk = tanks[turn]; if (!tk || tk.isAI || phase !== 'aim') return;
+  tk.angle = +e.target.value;
+  el('angleV').textContent = Math.round(tk.angle) + '°';
+});
+el('power').addEventListener('input', e => {
+  const tk = tanks[turn]; if (!tk || tk.isAI || phase !== 'aim') return;
+  tk.power = +e.target.value;
+  el('powerV').textContent = Math.round(tk.power);
+});
+document.querySelectorAll('.slider-row button').forEach(b => {
+  b.onclick = () => {
+    const tk = tanks[turn]; if (!tk || tk.isAI || phase !== 'aim') return;
+    const act = b.dataset.act;
+    if (act === 'a+') tk.angle = clamp(tk.angle + 1, 1, 179);
+    if (act === 'a-') tk.angle = clamp(tk.angle - 1, 1, 179);
+    if (act === 'p+') tk.power = clamp(tk.power + 1, 15, 100);
+    if (act === 'p-') tk.power = clamp(tk.power - 1, 15, 100);
+    updateHUD();
+  };
+});
+el('fireBtn').onclick = () => {
+  const tk = tanks[turn]; if (!tk || tk.isAI || phase !== 'aim') return;
+  fireWeapon(tk, tk.selected);
+};
+
+window.addEventListener('keydown', e => {
+  if (phase === 'gameover' && e.key.toLowerCase() === 'r') { returnToTitle(); return; }
+  const tk = tanks[turn]; if (!tk || tk.isAI || phase !== 'aim') return;
+  if (e.key === 'ArrowLeft')  { tk.angle = clamp(tk.angle + (e.shiftKey ? 5 : 1), 1, 179); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { tk.angle = clamp(tk.angle - (e.shiftKey ? 5 : 1), 1, 179); e.preventDefault(); }
+  if (e.key === 'ArrowUp')    { tk.power = clamp(tk.power + (e.shiftKey ? 5 : 1), 15, 100); e.preventDefault(); }
+  if (e.key === 'ArrowDown')  { tk.power = clamp(tk.power - (e.shiftKey ? 5 : 1), 15, 100); e.preventDefault(); }
+  if (e.key === ' ') { fireWeapon(tk, tk.selected); e.preventDefault(); }
+  // Weapon keys 1-9,0,-,=
+  const idx = WEAPONS.findIndex(w => w.key === e.key);
+  if (idx >= 0 && tk.inventory[WEAPONS[idx].name] > 0) { tk.selected = idx; }
+  updateHUD();
+});
+
+/* ---------- Title screen ---------- */
+document.querySelectorAll('.menu-row .opts').forEach(g => {
+  g.addEventListener('click', e => {
+    const b = e.target.closest('.opt'); if (!b) return;
+    g.querySelectorAll('.opt').forEach(o => o.classList.remove('on'));
+    b.classList.add('on');
+    const grp = g.dataset.group;
+    const val = b.dataset.val;
+    if (grp === 'mode') mode = val;
+    if (grp === 'ai') aiSkill = +val;
+    if (grp === 'terrain') terrainType = val;
+  });
+});
+el('startBtn').onclick = startGame;
+
+function startGame() {
+  el('title').classList.add('hidden');
+  buildTerrain(terrainType);
+  placeTanks();
+  projectiles = [];
+  particles.length = 0;
+  effects = [];
+  turn = 0;
+  phase = 'aim';
+  winner = -1;
+  newWind();
+  updateHUD();
+  if (tanks[turn].isAI) setTimeout(doAITurn, 1000);
+}
+
+function returnToTitle() {
+  el('title').classList.remove('hidden');
+}
+
+/* ---------- Main loop ---------- */
+let settleTimer = 0;  // frames to wait after projectiles done before next turn
+function loop() {
+  if (phase === 'projectile') {
+    stepProjectiles();
+    stepRollers();
+    if (projectiles.length === 0) {
+      if (settleTimer === 0) settleTimer = 30; // ~0.5s to let particles clear
+      else {
+        settleTimer--;
+        if (settleTimer <= 0) { settleTimer = 0; nextTurn(); }
+      }
+    } else {
+      settleTimer = 0;
+    }
+  }
+  stepParticles();
+  render();
+  requestAnimationFrame(loop);
+}
+loop();
+
+})();
+</script>
+</body>
+</html>
