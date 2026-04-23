@@ -1584,12 +1584,15 @@ function returnToTitle() {
 
 /* ---------- Main loop ---------- */
 let settleTimer = 0;  // frames to wait after projectiles done before next turn
+let settleTimer = 0;
 function loop() {
+  requestAnimationFrame(loop);                    // schedule first so errors can't kill the loop
+  if (!terrain || tanks.length === 0) { return; } // nothing to draw until startGame() has run
   if (phase === 'projectile') {
     stepProjectiles();
     stepRollers();
     if (projectiles.length === 0) {
-      if (settleTimer === 0) settleTimer = 30; // ~0.5s to let particles clear
+      if (settleTimer === 0) settleTimer = 30;
       else {
         settleTimer--;
         if (settleTimer <= 0) { settleTimer = 0; nextTurn(); }
@@ -1600,7 +1603,6 @@ function loop() {
   }
   stepParticles();
   render();
-  requestAnimationFrame(loop);
 }
 loop();
 
